@@ -1,3 +1,4 @@
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkContext, SparkFiles}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
@@ -21,5 +22,22 @@ object Utils {
         null
       }
     }
+  }
+
+  def getAvgUserRatings(ratings: RDD[(Int, Int, Double)]): RDD[(Int, Double)] = {
+
+    val userSumRatings = ratings
+      .map({case (userID, movieID, rating) => (userID, rating)})
+      .reduceByKey((sumRatings, rating) => sumRatings + rating)
+
+    val userNumberOfRatings = ratings
+      .map({case (userID, movieID, rating) => (userID, 1)})
+      .reduceByKey((totalRatings, one) => totalRatings + one)
+
+    val userAvgRating = userSumRatings
+      .join(userNumberOfRatings)
+      .map({case (userID, (sumOfRatings, numberOfRatings)) => (userID, sumOfRatings / numberOfRatings)})
+
+    userAvgRating
   }
 }
