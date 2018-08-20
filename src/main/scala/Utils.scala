@@ -90,4 +90,23 @@ object Utils {
 
     similarities
   }
+
+  def getUserPredictions(userSimilarities: RDD[(Int, Int, Double)], ratings: RDD[(Int, Int, Double)])
+  :RDD[(Int, Int, Double)] = {
+    val a = userSimilarities
+        .cartesian(ratings)
+        .filter({case ((user1, user2, similarity), (userID, movieID, rating)) => {
+          user2 == userID && user1 != user2
+        }})
+        .map({case ((user1, user2, similarity), (userID, movieID, rating)) => {
+          ((user1, movieID), (rating * similarity, similarity))
+        }})
+        .reduceByKey({case ((ratingSum, similaritySum), (rating, similarity)) =>
+          (ratingSum + rating, similaritySum + similarity)
+        })
+        .map({case ((user, movie), (ratingTot, similarityTot)) =>
+          (user, movie, ratingTot / similarityTot)
+        })
+    a
+  }
 }

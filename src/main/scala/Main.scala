@@ -26,6 +26,8 @@ object Main extends App {
   val movies = loadMovies.get.limit(100).rdd
   val ratings = loadRatings.get.limit(500).rdd
 
+  val movieTitles = movies
+    .map(row => (row(0).toString.toInt, row(1).toString))
   val userMovieRating = ratings
     .map(row => (row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
@@ -35,7 +37,11 @@ object Main extends App {
 
   val userSimilarity = Utils.getUserSimilarity(userMovieRating)
 
-  println(userSimilarity.collect().deep.mkString("\n"))
+  val userMoviePredictions = Utils.getUserPredictions(userSimilarity, userMovieRating)
+
+
+
+  println(userMoviePredictions.collect().deep.mkString("\n"))
 
   sc.stop()
 }
