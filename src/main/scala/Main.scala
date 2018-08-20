@@ -23,7 +23,7 @@ object Main extends App {
   val loadMovies: Try[DataFrame] = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv"))
   val loadRatings: Try[DataFrame] = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv"))
 
-  val movies = loadMovies.get.limit(100).rdd
+  val movies = loadMovies.get.rdd
   val ratings = loadRatings.get.limit(500).rdd
 
   val movieTitles = movies
@@ -39,9 +39,18 @@ object Main extends App {
 
   val userMoviePredictions = Utils.getUserPredictions(userSimilarity, userMovieRating)
 
+  val test = userMoviePredictions
+      .map({case (user, movie, score) =>
+        (movie, (user, score))
+      })
+      .join(movieTitles)
+      .map({case (movie, ((user, score), title)) =>
+        (user, title, score)
+      })
+      .filter({case (user, title, score) => !score.isNaN})
+      .sortBy({case (user, title, score) => score})
 
-
-  println(userMoviePredictions.collect().deep.mkString("\n"))
+  println(test.collect().deep.mkString("\n"))
 
   sc.stop()
 }

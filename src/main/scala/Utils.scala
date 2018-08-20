@@ -93,7 +93,7 @@ object Utils {
 
   def getUserPredictions(userSimilarities: RDD[(Int, Int, Double)], ratings: RDD[(Int, Int, Double)])
   :RDD[(Int, Int, Double)] = {
-    val a = userSimilarities
+    val similarities = userSimilarities
         .cartesian(ratings)
         .filter({case ((user1, user2, similarity), (userID, movieID, rating)) => {
           user2 == userID && user1 != user2
@@ -107,6 +107,6 @@ object Utils {
         .map({case ((user, movie), (ratingTot, similarityTot)) =>
           (user, movie, ratingTot / similarityTot)
         })
-    a
+    similarities
   }
 }
