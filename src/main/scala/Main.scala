@@ -29,17 +29,7 @@ object Main extends App {
   val userMovieRating = ratings
     .map(row => (row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
-  val userSumRating = userMovieRating
-    .map({case (userID, movieID, rating) => (userID, rating)})
-    .reduceByKey((acc, cur) => acc + cur)
-
-  val userNumberOfRatings = userMovieRating
-    .map({case (userID, movieID, rating) => (userID, 1)})
-    .reduceByKey((totalRatings, one) => totalRatings + one)
-
-  val userAvgRating = userSumRating
-    .join(userNumberOfRatings)
-    .map({case (userID, (sumOfRatings, numberOfRatings)) => (userID, sumOfRatings / numberOfRatings)})
+  val userAvgRating = Utils.getAvgUserRatings(userMovieRating)
 
   val userMovieVariance = userMovieRating
     .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
