@@ -33,31 +33,9 @@ object Main extends App {
 
   val userMovieVariance = Utils.getUserMovieVariance(userMovieRating, userAvgRating)
 
-  val userIds = userMovieRating
-    .map({case (userID, movieID, rating) => userID})
-    .distinct()
+  val userSimilarity = Utils.getUserSimilarity(userMovieRating)
 
-  val userUserPairs = userIds
-    .cartesian(userIds)
-    .filter({case (userID, user2ID) => userID != user2ID})
-
-  val userUserMovieVarVarSum = userUserPairs
-    .cartesian(userMovieVariance)
-    .filter({case ((user1ID, user2ID), (userID, movieID, variance)) => user1ID == userID || user2ID == userID})
-    .map({case ((user1ID, user2ID), (userID, movieID, variance)) =>
-      ((user1ID, user2ID), (movieID, if (user1ID == userID) variance else 0.0, if (user2ID == userID) variance else 0.0))
-    })
-    .map({case ((user1ID, user2ID), (movieID, user1Var, user2Var)) => ((user1ID, user2ID, movieID), (user1Var, user2Var))})
-    .reduceByKey({case ((user1VarTot, user2VarTot), (user1Var, user2Var)) => (user1VarTot + user1Var, user2VarTot + user2Var)})
-    .map({case ((user1ID, user2ID, movieID), (user1Var, user2Var)) => ((user1ID, user2ID), user1Var * user2Var)})
-    .filter({case ((user1ID, user2ID), variance) => variance != 0})
-    .map({case ((user1ID, user2ID), variance) => if (user1ID > user2ID)
-      ((user1ID, user2ID), variance) else
-      ((user2ID, user1ID), variance)
-    })
-    .distinct()
-
-  println(userMovieVariance.collect().deep.mkString("\n"))
+  println(userSimilarity.collect().deep.mkString("\n"))
 
   sc.stop()
 }

@@ -51,4 +51,43 @@ object Utils {
 
     userMovieVariance
   }
+
+  def getUserSimilarity(userMovieRatings: RDD[(Int, Int, Double)])
+  :RDD[(Int, Int, Double)] = {
+//  :RDD[(Int, Int, Double, Double)] = {
+    val umv = userMovieRatings
+        .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
+    val matrix = umv
+        .cartesian(umv)
+        .filter({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
+          movieID1 == movieID2 && userID1 != userID2
+        })
+        .map({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
+          (movieID1, ((userID1, rating1), (userID2, rating2)))
+        })
+        .filter({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
+          !(rating1.isNaN || rating2.isNaN)
+        })
+
+    val similarities = matrix
+        .map({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
+          ((userID1, userID2),
+            (rating1, rating2, rating1 * rating1, rating2 * rating2, rating1 * rating2, 1))
+        })
+        .reduceByKey({case ((sumR1, sumR2, sumA, sumB, sumC, sumN), (rating1, rating2, a, b, c, n)) =>
+          (sumR1 + rating1, sumR2 + rating2, sumA + a, sumB + b, sumC + c, sumN + n)
+        })
+        .map({case ((userID1, userID2), (x, y, xx, yy, xy, n)) =>
+          val numerator = xy - (x * y) / n
+          val denominator1 = xx - (x * x) / n
+          val denominator2 = yy - (y * y) / n
+
+          val correlation = numerator / Math.sqrt(denominator1 * denominator2)
+
+          (userID1, userID2, correlation)
+        })
+        .filter({case (userID1, userID2, correlation) => !correlation.isNaN})
+
+    similarities
+  }
 }
