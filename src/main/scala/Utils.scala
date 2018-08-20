@@ -24,7 +24,8 @@ object Utils {
     }
   }
 
-  def getAvgUserRatings(ratings: RDD[(Int, Int, Double)]): RDD[(Int, Double)] = {
+  def getAvgUserRatings(ratings: RDD[(Int, Int, Double)])
+  : RDD[(Int, Double)] = {
 
     val userSumRatings = ratings
       .map({case (userID, movieID, rating) => (userID, rating)})
@@ -39,5 +40,15 @@ object Utils {
       .map({case (userID, (sumOfRatings, numberOfRatings)) => (userID, sumOfRatings / numberOfRatings)})
 
     userAvgRating
+  }
+
+  def getUserMovieVariance(userMovieRatings: RDD[(Int, Int, Double)], userAvgRatings: RDD[(Int, Double)])
+  :RDD[(Int, Int, Double)] = {
+    val userMovieVariance = userMovieRatings
+      .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
+      .join(userAvgRatings)
+      .map({case (userID, ((movieID, rating), userAvgRating)) => (userID, movieID, rating - userAvgRating)})
+
+    userMovieVariance
   }
 }

@@ -31,10 +31,7 @@ object Main extends App {
 
   val userAvgRating = Utils.getAvgUserRatings(userMovieRating)
 
-  val userMovieVariance = userMovieRating
-    .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
-    .join(userAvgRating)
-    .map({case (userID, ((movieID, rating), avgRating)) => (userID, movieID, rating - avgRating)})
+  val userMovieVariance = Utils.getUserMovieVariance(userMovieRating, userAvgRating)
 
   val userIds = userMovieRating
     .map({case (userID, movieID, rating) => userID})
@@ -60,7 +57,7 @@ object Main extends App {
     })
     .distinct()
 
-  println(userUserMovieVarVarSum.collect().deep.mkString("\n"))
+  println(userMovieVariance.collect().deep.mkString("\n"))
 
   sc.stop()
 }
