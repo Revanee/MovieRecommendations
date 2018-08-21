@@ -24,33 +24,51 @@ object Main extends App {
   val loadRatings: Try[DataFrame] = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv"))
 
   val movies = loadMovies.get.rdd
-  val ratings = loadRatings.get.limit(500).rdd
+  val ratings = sc.parallelize(loadRatings.get.rdd.sortBy(Row => Row(1).toString.toInt).take(500))
+
+  val testRatings = sc.parallelize(ratings.take(50))
+  ratings.subtract(testRatings)
+
+  val userMovieRatingsTest = testRatings
+    .map(row => (row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
   val movieTitles = movies
     .map(row => (row(0).toString.toInt, row(1).toString))
-  val userMovieRating = ratings
+  val userMovieRatings = ratings
     .map(row => (row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
-  val userAvgRating = Utils.getAvgUserRatings(userMovieRating)
+  val totalUsers = userMovieRatings
+    .map(t => t._1)
+    .distinct()
+    .count()
 
-  val userMovieVariance = Utils.getUserMovieVariance(userMovieRating, userAvgRating)
+  val userAvgRating = Utils.getAvgUserRatings(userMovieRatings)
 
-  val userSimilarity = Utils.getUserSimilarity(userMovieRating)
+  val userSimilarity = Utils.getUserSimilarity(userMovieRatings)
+  val totalUserSimilarities = userSimilarity.count()
 
-  val userMoviePredictions = Utils.getUserPredictions(userSimilarity, userMovieRating)
+  val userMoviePredictions = Utils.getUserPredictions(userSimilarity, userMovieRatings)
 
-  val test = userMoviePredictions
-      .map({case (user, movie, score) =>
-        (movie, (user, score))
+  val test = userMovieRatingsTest
+      .map({case (user, movie, rating) => ((user, movie), rating)})
+
+  val predictions = userMoviePredictions
+      .map({case (user, movie, score) => ((user, movie), score)})
+
+  val testResults = test
+      .join(predictions)
+      .map({case ((user, movie), (rating, score)) =>
+        (rating, score, 5.0)
       })
-      .join(movieTitles)
-      .map({case (movie, ((user, score), title)) =>
-        (user, title, score)
+      .filter({case (rating, score, max) =>
+        !rating.isNaN && !score.isNaN && !max.isNaN
       })
-      .filter({case (user, title, score) => !score.isNaN})
-      .sortBy({case (user, title, score) => score})
+      .reduce({case ((ratingTot, scoreTot, maxTot), (rating, score, max)) =>
+        (ratingTot + rating, scoreTot + score, maxTot + max)
+      })
 
-  println(test.collect().deep.mkString("\n"))
-
+  println(s"Prediction accuracy: ${100.0 - Math.abs(testResults._1 - testResults._2) / testResults._3}%")
+//  println(userMoviePredictions.collect().deep.mkString("\n"))
+//  userMoviePredictions.collect()
   sc.stop()
 }

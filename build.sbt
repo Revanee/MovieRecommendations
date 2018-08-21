@@ -10,6 +10,8 @@ libraryDependencies += "org.apache.logging.log4j" % "log4j-api" % "2.11.1"
 libraryDependencies += "org.apache.logging.log4j" % "log4j-core" % "2.11.1"
 libraryDependencies += "com.databricks" %% "spark-csv" % "1.4.0"
 
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5"
+
 assemblyMergeStrategy in assembly := {
   case PathList("javax", "servlet", xs @ _*) => MergeStrategy.last
   case PathList("javax", "activation", xs @ _*) => MergeStrategy.last

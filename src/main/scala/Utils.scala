@@ -42,40 +42,42 @@ object Utils {
     userAvgRating
   }
 
-  def getUserMovieVariance(userMovieRatings: RDD[(Int, Int, Double)], userAvgRatings: RDD[(Int, Double)])
-  :RDD[(Int, Int, Double)] = {
-    val userMovieVariance = userMovieRatings
-      .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
-      .join(userAvgRatings)
-      .map({case (userID, ((movieID, rating), userAvgRating)) => (userID, movieID, rating - userAvgRating)})
-
-    userMovieVariance
-  }
-
   def getUserSimilarity(userMovieRatings: RDD[(Int, Int, Double)])
   :RDD[(Int, Int, Double)] = {
-//  :RDD[(Int, Int, Double, Double)] = {
-    val umv = userMovieRatings
+    val umr = userMovieRatings
         .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
-    val matrix = umv
-        .cartesian(umv)
+
+    val userIDs = umr
+      .map(t => t._1)
+      .distinct()
+
+    val movieIDs = umr
+      .map(t => t._2._1)
+      .distinct()
+
+    val matrix = umr
+        .cartesian(umr)
         .filter({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
           movieID1 == movieID2 && userID1 != userID2
         })
         .map({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
+          if (userID1 > userID2) ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2)))
+          else ((userID2,(movieID2, rating2)), (userID1,(movieID1, rating1)))
+        })
+        .distinct()
+        .map({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
           (movieID1, ((userID1, rating1), (userID2, rating2)))
         })
-        .filter({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
-          !(rating1.isNaN || rating2.isNaN)
-        })
+
+    println(s"Matrix filled ${(100.0 * matrix.count()) / (userIDs.count() * movieIDs.count())}%")
 
     val similarities = matrix
         .map({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
           ((userID1, userID2),
             (rating1, rating2, rating1 * rating1, rating2 * rating2, rating1 * rating2, 1))
         })
-        .reduceByKey({case ((sumR1, sumR2, sumA, sumB, sumC, sumN), (rating1, rating2, a, b, c, n)) =>
-          (sumR1 + rating1, sumR2 + rating2, sumA + a, sumB + b, sumC + c, sumN + n)
+        .reduceByKey({case ((xTot, yTot, xxTot, yyTot, xyTot, nTot), (x, y, xx, yy, xy, n)) =>
+          (xTot + x, yTot + y, xxTot + xx, yyTot + yy, xyTot + xy, nTot + n)
         })
         .map({case ((userID1, userID2), (x, y, xx, yy, xy, n)) =>
           val numerator = xy - (x * y) / n
@@ -87,13 +89,26 @@ object Utils {
           (userID1, userID2, correlation)
         })
         .filter({case (userID1, userID2, correlation) => !correlation.isNaN})
+        .map({case (userID1, userID2, score) =>
+          if (userID1 > userID2) (userID1, (userID2, score))
+          else (userID2, (userID1, score))
+        })
+        .distinct()
+        .map({case (userID1, (userID2, score)) =>
+          (userID1, userID2, score)
+        })
 
+    println(s"Similarities calculated ${100.0 * similarities.count() / ((userIDs.count() * userIDs.count() - userIDs.count) / 2.0)}%")
     similarities
   }
 
   def getUserPredictions(userSimilarities: RDD[(Int, Int, Double)], ratings: RDD[(Int, Int, Double)])
   :RDD[(Int, Int, Double)] = {
-    val similarities = userSimilarities
+
+    val totalMovies = ratings.map({case (user, movie, rating) => movie}).distinct().count()
+    val totalUsers = ratings.map({case (user, movie, rating) => user}).distinct().count()
+
+    val predictions = userSimilarities
         .cartesian(ratings)
         .filter({case ((user1, user2, similarity), (userID, movieID, rating)) => {
           user2 == userID && user1 != user2
@@ -107,6 +122,9 @@ object Utils {
         .map({case ((user, movie), (ratingTot, similarityTot)) =>
           (user, movie, ratingTot / similarityTot)
         })
-    similarities
+
+    println(s"Predictions calculated ${100.0 * predictions.count() / (totalUsers * totalMovies)}")
+
+    predictions
   }
 }
