@@ -25,9 +25,9 @@ object Main extends App {
   val loadRatings: Try[DataFrame] = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv"))
 
   val movies = loadMovies.get.rdd
-  val ratings = sc.parallelize(loadRatings.get.rdd.sortBy(Row => Row(1).toString.toInt).take(500))
+  val ratings = loadRatings.get.limit(5000).rdd
 
-  val testRatings = sc.parallelize(ratings.take(50))
+  val testRatings = sc.parallelize(ratings.takeSample(false, 500, 61345351))
   ratings.subtract(testRatings)
 
   val userMovieRatingsTest = testRatings
@@ -50,7 +50,7 @@ object Main extends App {
 
   val userMoviePredictions = Utils.getUserPredictions(userSimilarity, userMovieRatings)
 
-  println(s"Accuracy ${Utils.checkPredictionAccuracy(userMoviePredictions, userMovieRatingsTest)}")
+  println(s"Accuracy ${Utils.checkPredictionAccuracy(userMoviePredictions, userMovieRatingsTest)}%")
 
   sc.stop()
 }

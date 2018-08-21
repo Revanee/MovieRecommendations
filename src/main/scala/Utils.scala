@@ -69,7 +69,7 @@ object Utils {
           (movieID1, ((userID1, rating1), (userID2, rating2)))
         })
 
-    println(s"Matrix filled ${(100.0 * matrix.count()) / (userIDs.count() * movieIDs.count())}%")
+    println(s"Matrix filled ${(100.0 * matrix.count()) / (userIDs.count() * userIDs.count() * movieIDs.count())}%")
 
     val similarities = matrix
         .map({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
@@ -122,8 +122,9 @@ object Utils {
         .map({case ((user, movie), (ratingTot, similarityTot)) =>
           (user, movie, ratingTot / similarityTot)
         })
+        .filter({case (user, movie, rating) => !rating.isNaN})
 
-    println(s"Predictions calculated ${100.0 * predictions.count() / (totalUsers * totalMovies)}")
+    println(s"Predictions calculated ${100.0 * predictions.count() / (totalUsers * totalMovies)}%")
 
     predictions
   }
