@@ -13,6 +13,7 @@ object Main extends App {
   sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
 
   val sc = new SparkContext(sparkConf)
+  sc.setLogLevel("ERROR")
   val sqlContext = new SQLContext(sc)
 
   val logger = Logger.getLogger("org")
@@ -49,26 +50,7 @@ object Main extends App {
 
   val userMoviePredictions = Utils.getUserPredictions(userSimilarity, userMovieRatings)
 
-  val test = userMovieRatingsTest
-      .map({case (user, movie, rating) => ((user, movie), rating)})
+  println(s"Accuracy ${Utils.checkPredictionAccuracy(userMoviePredictions, userMovieRatingsTest)}")
 
-  val predictions = userMoviePredictions
-      .map({case (user, movie, score) => ((user, movie), score)})
-
-  val testResults = test
-      .join(predictions)
-      .map({case ((user, movie), (rating, score)) =>
-        (rating, score, 5.0)
-      })
-      .filter({case (rating, score, max) =>
-        !rating.isNaN && !score.isNaN && !max.isNaN
-      })
-      .reduce({case ((ratingTot, scoreTot, maxTot), (rating, score, max)) =>
-        (ratingTot + rating, scoreTot + score, maxTot + max)
-      })
-
-  println(s"Prediction accuracy: ${100.0 - Math.abs(testResults._1 - testResults._2) / testResults._3}%")
-//  println(userMoviePredictions.collect().deep.mkString("\n"))
-//  userMoviePredictions.collect()
   sc.stop()
 }

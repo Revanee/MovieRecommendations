@@ -37,7 +37,27 @@ class UtilsTest extends FunSuite {
 
     assert(similarities.contains((3, 1, 1.0)))
     assert(similarities.contains((3, 2, -0.8660254037844387)))
+  }
 
-    sc.stop()
+  test("Utils get accuracy") {
+    val ratings = Seq(
+      (1, 1, 2.5),
+      (1, 2, 4.0),
+      (1, 3, 2.0),
+      (2, 1, 1.5),
+      (2, 2, 1.0),
+      (2, 3, 0.5)
+    )
+
+    val predictions = Seq(
+      (1, 1, 5.0),
+      (1, 2, 2.0),
+      (2, 1, 3.0),
+      (2, 2, 2.0)
+    )
+
+    val accuracy = Utils.checkPredictionAccuracy(sc.parallelize(predictions), sc.parallelize(ratings))
+
+    assert(accuracy === 50.0)
   }
 }

@@ -127,4 +127,26 @@ object Utils {
 
     predictions
   }
+
+  def checkPredictionAccuracy(predictions: RDD[(Int, Int, Double)], ratings: RDD[(Int, Int, Double)])
+  :Double = {
+    val predictionsByKey = predictions.map({case (user, movie, score) => ((user, movie), score)})
+    val ratingsByKey = ratings.map({case (user, movie, rating) => ((user, movie), rating)})
+
+    val toCompare = predictionsByKey
+      .join(ratingsByKey)
+      .map({case ((user, movie), (score, rating)) => (score, rating)})
+
+    if (toCompare.count() == 0) throw new Exception("Not enough items to compare accuracy")
+
+    val (totalDeviation, totalRating) = toCompare
+      .map({case (score, rating) => (math.abs(score - rating), if (score > rating) score else rating)})
+      .reduce({case ((deviationTot, ratingTot), (deviation, rating)) =>
+        (deviationTot + deviation, ratingTot + rating)
+      })
+
+    val accuracy = 100.0 - 100.0 * (totalDeviation / totalRating)
+
+    accuracy
+  }
 }
