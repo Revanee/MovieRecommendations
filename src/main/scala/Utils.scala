@@ -1,3 +1,5 @@
+import java.net.URISyntaxException
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkContext, SparkException, SparkFiles}
 import org.apache.spark.sql.{DataFrame, SQLContext}
@@ -20,9 +22,16 @@ object Utils {
             val className = e2.getMessage
             throw new Exception(s"$className is not avalilable. Did you assemble a fat jar?")
           }
-          case e2: Exception => throw e2
+          case e2: URISyntaxException => {
+            throw new Exception(s"Something's wrong with the file path ${e2.getMessage}")
+          }
+          case e2: Exception =>
+            println(e2)
+            throw e2
         }
-      case e: Exception => throw e
+      case e: Exception =>
+        println(e)
+        throw e
     }
   }
 

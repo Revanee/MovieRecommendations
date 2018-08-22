@@ -10,25 +10,27 @@ object Main extends App {
 
   println("Initializing spark...")
   val sparkConf = new SparkConf()
-  sparkConf.setAppName("Test")
+  sparkConf.setAppName("Movie Recommendations")
   sparkConf.setMaster("spark://192.168.56.101:7077")
   sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
   val sc = new SparkContext(sparkConf)
-  sc.setLogLevel("ERROR")
+  sc.setLogLevel("WARN")
   val sqlContext = new SQLContext(sc)
   println("Spark ready")
 
   val logger = Logger.getLogger("org")
 
+  sc.addJar("C:\\Users\\Utente\\.ivy2\\cache\\com.databricks\\spark-csv_2.10\\jars\\spark-csv_2.10-1.4.0.jar")
+
   println("Loading files...")
-  sc.addFile("./src/main/resources/ml-latest-small/movies.csv")
-  sc.addFile("./src/main/resources/ml-latest-small/ratings.csv")
+  sc.addFile("file:/c:/data/ml-latest-small/movies.csv")
+  sc.addFile("file:/c:/data/ml-latest-small/ratings.csv")
 
   var moviesDF: DataFrame = _
   Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv")) match {
     case Failure(exception) =>
       sc.stop()
-      println(exception.getMessage)
+      println(exception)
       println("Movies not loaded")
       System.exit(0)
     case Success(value) => moviesDF = value
