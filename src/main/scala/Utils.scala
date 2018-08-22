@@ -18,7 +18,7 @@ object Utils {
         e.getCause match {
           case e2: ClassNotFoundException => {
             val className = e2.getMessage
-            throw new Exception(s"$e2 is not avalilable. Did you assemble a fat jar?")
+            throw new Exception(s"$className is not avalilable. Did you assemble a fat jar?")
           }
           case e2: Exception => throw e2
         }
