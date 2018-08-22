@@ -1,5 +1,5 @@
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkContext, SparkFiles}
+import org.apache.spark.{SparkContext, SparkException, SparkFiles}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import scala.util.Try
@@ -14,13 +14,15 @@ object Utils {
         .option("inferSchema", "true")
         .load(path)
     }) recover {
-      case e: Exception => {
-        sc.stop()
-        println(s"Error loading file at $path")
-        println(e)
-        System.exit(0)
-        null
-      }
+      case e: SparkException =>
+        e.getCause match {
+          case e2: ClassNotFoundException => {
+            val className = e2.getMessage
+            throw new Exception(s"$e2 is not avalilable. Did you assemble a fat jar?")
+          }
+          case e2: Exception => throw e2
+        }
+      case e: Exception => throw e
     }
   }
 

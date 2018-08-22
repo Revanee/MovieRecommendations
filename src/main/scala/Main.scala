@@ -2,6 +2,8 @@ import org.apache.log4j.Logger
 import org.apache.spark.sql._
 import org.apache.spark.{SparkConf, SparkContext, SparkFiles}
 
+import scala.util.Success
+import scala.util.Failure
 import scala.util.Try
 
 object Main extends App {
@@ -9,7 +11,7 @@ object Main extends App {
   println("Initializing spark...")
   val sparkConf = new SparkConf()
   sparkConf.setAppName("Test")
-  sparkConf.setMaster("local[*]")
+  sparkConf.setMaster("spark://192.168.56.101:7077")
   sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
   val sc = new SparkContext(sparkConf)
   sc.setLogLevel("ERROR")
@@ -21,13 +23,31 @@ object Main extends App {
   println("Loading files...")
   sc.addFile("./src/main/resources/ml-latest-small/movies.csv")
   sc.addFile("./src/main/resources/ml-latest-small/ratings.csv")
-  val loadMovies: Try[DataFrame] = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv"))
-  val loadRatings: Try[DataFrame] = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv"))
+
+  var moviesDF: DataFrame = _
+  Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv")) match {
+    case Failure(exception) =>
+      sc.stop()
+      println(exception.getMessage)
+      println("Movies not loaded")
+      System.exit(0)
+    case Success(value) => moviesDF = value
+  }
+
+  var ratingsDF: DataFrame = _
+  Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv")) match {
+    case Failure(exception) =>
+      sc.stop()
+      println(exception)
+      println("Ratings not loaded")
+      System.exit(0)
+    case Success(value) => ratingsDF = value
+  }
   println("Files loaded")
 
   println("Preparing data...")
-  val movies = loadMovies.get.rdd
-  val ratings = loadRatings.get.limit(500).rdd
+  val movies = moviesDF.rdd
+  val ratings = ratingsDF.limit(500).rdd
 
   val testRatings = sc.parallelize(ratings.takeSample(false, 50, 61345351))
   ratings.subtract(testRatings)
