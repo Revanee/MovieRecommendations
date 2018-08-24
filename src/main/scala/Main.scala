@@ -6,28 +6,36 @@ import scala.util.Success
 import scala.util.Failure
 import scala.util.Try
 
+import java.io.File
+
 object Main extends App {
 
   println("Initializing spark...")
   val sparkConf = new SparkConf()
-  sparkConf.setAppName("Movie Recommendations")
-  sparkConf.setMaster("spark://192.168.56.101:7077")
-  sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
+    .setAppName("Movie Recommendations")
+    .setMaster("spark://192.168.56.101:7077")
+    .set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
+//    .setJars(Seq(
+//      "C:\\Users\\Utente\\.ivy2\\cache\\com.databricks\\spark-csv_2.10\\jars\\spark-csv_2.10-1.4.0.jar"
+//    ))
   val sc = new SparkContext(sparkConf)
-  sc.setLogLevel("WARN")
+  println(sc.getConf.get("spark.jars").toString)
+  sc.setLogLevel("INFO")
   val sqlContext = new SQLContext(sc)
   println("Spark ready")
 
   val logger = Logger.getLogger("org")
 
-  sc.addJar("C:\\Users\\Utente\\.ivy2\\cache\\com.databricks\\spark-csv_2.10\\jars\\spark-csv_2.10-1.4.0.jar")
+//  sc.addJar("C:\\Users\\Utente\\.ivy2\\cache\\com.databricks\\spark-csv_2.10\\jars\\spark-csv_2.10-1.4.0.jar")
 
   println("Loading files...")
-  sc.addFile("file:/c:/data/ml-latest-small/movies.csv")
-  sc.addFile("file:/c:/data/ml-latest-small/ratings.csv")
+  sc.addFile("https://raw.githubusercontent.com/Revanee/MovieRecommendations/master/src/main/resources/ml-latest-small/movies.csv")
+  sc.addFile("https://raw.githubusercontent.com/Revanee/MovieRecommendations/master/src/main/resources/ml-latest-small/movies.csv")
+
+  println(SparkFiles.getRootDirectory())
 
   var moviesDF: DataFrame = _
-  Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv")) match {
+  Utils.loadFileCSV(sc, sqlContext, "hdfs://192.168.56.101:9000/movies.csv") match {
     case Failure(exception) =>
       sc.stop()
       println(exception)
@@ -37,7 +45,7 @@ object Main extends App {
   }
 
   var ratingsDF: DataFrame = _
-  Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv")) match {
+  Utils.loadFileCSV(sc, sqlContext, "hdfs://192.168.56.101:9000/ratings.csv") match {
     case Failure(exception) =>
       sc.stop()
       println(exception)

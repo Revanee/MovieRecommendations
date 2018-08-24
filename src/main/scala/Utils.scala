@@ -7,20 +7,21 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 import scala.util.Try
 
 object Utils {
-  def loadFileCSV(sc: SparkContext, sqlContext: SQLContext, path: String): Try[DataFrame] = {
-    println("Trying to get file at " ++ SparkFiles.get("movies.csv"))
+  def loadFileCSV(sc: SparkContext, sqlContext: SQLContext, uri: String): Try[DataFrame] = {
+    println(s"Trying to get file at ${uri}")
     Try[DataFrame]({
+      println(s"Root directory: ${SparkFiles.getRootDirectory()}")
       sqlContext.read
         .format("com.databricks.spark.csv")
         .option("header", "true")
         .option("inferSchema", "true")
-        .load(path)
+        .load(uri)
     }) recover {
       case e: SparkException =>
         e.getCause match {
           case e2: ClassNotFoundException => {
             val className = e2.getMessage
-            throw new Exception(s"$className is not avalilable. Did you assemble a fat jar?")
+            throw new Exception(s"$className is not available. Did you assemble a fat jar?")
           }
           case e2: URISyntaxException => {
             throw new Exception(s"Something's wrong with the file path ${e2.getMessage}")
