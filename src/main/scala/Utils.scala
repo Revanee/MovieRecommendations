@@ -8,9 +8,8 @@ import scala.util.Try
 
 object Utils {
   def loadFileCSV(sc: SparkContext, sqlContext: SQLContext, uri: String): Try[DataFrame] = {
-    println(s"Trying to get file at ${uri}")
+    println(s"Getting file at $uri")
     Try[DataFrame]({
-      println(s"Root directory: ${SparkFiles.getRootDirectory()}")
       sqlContext.read
         .format("com.databricks.spark.csv")
         .option("header", "true")
