@@ -1,7 +1,8 @@
 import java.net.URISyntaxException
 
+import DataClasses.{Rating, Similarity}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkContext, SparkException, SparkFiles}
+import org.apache.spark.{SparkContext, SparkException}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import scala.util.Try
@@ -20,7 +21,7 @@ object Utils {
         e.getCause match {
           case e2: ClassNotFoundException => {
             val className = e2.getMessage
-            throw new Exception(s"$className is not available. Did you assemble a fat jar?")
+            throw new Exception(s"$className is not available")
           }
           case e2: URISyntaxException => {
             throw new Exception(s"Something's wrong with the file path ${e2.getMessage}")
@@ -35,15 +36,15 @@ object Utils {
     }
   }
 
-  def getAvgUserRatings(ratings: RDD[(Int, Int, Double)])
+  def getAvgUserRatings(ratings: RDD[Rating])
   : RDD[(Int, Double)] = {
 
     val userSumRatings = ratings
-      .map({case (userID, movieID, rating) => (userID, rating)})
+      .map({rating: Rating => (rating.user, rating.score)})
       .reduceByKey((sumRatings, rating) => sumRatings + rating)
 
     val userNumberOfRatings = ratings
-      .map({case (userID, movieID, rating) => (userID, 1)})
+      .map({rating: Rating => (rating.user, 1)})
       .reduceByKey((totalRatings, one) => totalRatings + one)
 
     val userAvgRating = userSumRatings
@@ -53,31 +54,29 @@ object Utils {
     userAvgRating
   }
 
-  def getUserSimilarity(userMovieRatings: RDD[(Int, Int, Double)])
-  :RDD[(Int, Int, Double)] = {
-    val umr = userMovieRatings
-        .map({case (userID, movieID, rating) => (userID, (movieID, rating))})
-
-    val userIDs = umr
-      .map(t => t._1)
+  def getUserSimilarity(ratings: RDD[Rating])
+  :RDD[Similarity] = {
+    val userIDs = ratings
+      .map((rating: Rating) => rating.user)
       .distinct()
 
-    val movieIDs = umr
-      .map(t => t._2._1)
+    val movieIDs = ratings
+      .map((rating: Rating) => rating.movie)
       .distinct()
 
-    val matrix = umr
-        .cartesian(umr)
-        .filter({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
-          movieID1 == movieID2 && userID1 != userID2
+    val matrix = ratings
+        .cartesian(ratings)
+        .filter({case (rating1: Rating, rating2: Rating) =>
+          //movieID1 == movieID2 && userID1 != userID2
+          rating1.movie == rating2.movie && rating1.user != rating2.user
         })
-        .map({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
-          if (userID1 > userID2) ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2)))
-          else ((userID2,(movieID2, rating2)), (userID1,(movieID1, rating1)))
+        .map({case (rating1: Rating, rating2: Rating) =>
+          if (rating1.user > rating2.user) (rating1, rating2)
+          else (rating2, rating1)
         })
         .distinct()
-        .map({case ((userID1,(movieID1, rating1)), (userID2,(movieID2, rating2))) =>
-          (movieID1, ((userID1, rating1), (userID2, rating2)))
+        .map({case (rating1: Rating, rating2: Rating) =>
+          (rating1.movie, ((rating1.user, rating1.score), (rating2.user, rating2.score)))
         })
 
     println(s"Matrix filled ${(100.0 * matrix.count()) / (userIDs.count() * userIDs.count() * movieIDs.count())}%")
@@ -106,44 +105,45 @@ object Utils {
         })
         .distinct()
         .map({case (userID1, (userID2, score)) =>
-          (userID1, userID2, score)
+          Similarity(userID1, userID2, score)
         })
 
     println(s"Similarities calculated ${100.0 * similarities.count() / ((userIDs.count() * userIDs.count() - userIDs.count) / 2.0)}%")
     similarities
   }
 
-  def getUserPredictions(userSimilarities: RDD[(Int, Int, Double)], ratings: RDD[(Int, Int, Double)])
-  :RDD[(Int, Int, Double)] = {
+  def getUserPredictions(userSimilarities: RDD[Similarity], ratings: RDD[Rating])
+  :RDD[Rating] = {
 
-    val totalMovies = ratings.map({case (user, movie, rating) => movie}).distinct().count()
-    val totalUsers = ratings.map({case (user, movie, rating) => user}).distinct().count()
+    val totalMovies = ratings.map((rating: Rating) => rating.movie).distinct().count()
+    val totalUsers = ratings.map((rating: Rating) => rating.user).distinct().count()
 
     val predictions = userSimilarities
         .cartesian(ratings)
-        .filter({case ((user1, user2, similarity), (userID, movieID, rating)) => {
-          user2 == userID && user1 != user2
+        .filter({case (similarity: Similarity, rating: Rating) => {
+          similarity.user == rating.user
         }})
-        .map({case ((user1, user2, similarity), (userID, movieID, rating)) => {
-          ((user1, movieID), (rating * similarity, similarity))
+        .map({case (similarity: Similarity, rating: Rating) => {
+          ((similarity.user, rating.movie), (rating.score * similarity.score, similarity.score))
         }})
         .reduceByKey({case ((ratingSum, similaritySum), (rating, similarity)) =>
           (ratingSum + rating, similaritySum + similarity)
         })
         .map({case ((user, movie), (ratingTot, similarityTot)) =>
-          (user, movie, ratingTot / similarityTot)
+          Rating(user, movie, ratingTot / similarityTot)
         })
-        .filter({case (user, movie, rating) => !rating.isNaN})
+        .filter((prediction: Rating) => !prediction.score.isNaN)
 
     println(s"Predictions calculated ${100.0 * predictions.count() / (totalUsers * totalMovies)}%")
 
     predictions
   }
 
-  def checkPredictionAccuracy(predictions: RDD[(Int, Int, Double)], ratings: RDD[(Int, Int, Double)])
+  def checkPredictionAccuracy(predictions: RDD[Rating], ratings: RDD[Rating])
   :Double = {
-    val predictionsByKey = predictions.map({case (user, movie, score) => ((user, movie), score)})
-    val ratingsByKey = ratings.map({case (user, movie, rating) => ((user, movie), rating)})
+    val predictionsByKey = predictions
+      .map((prediction: Rating) => ((prediction.user, prediction.movie), prediction.score))
+    val ratingsByKey = ratings.map((rating: Rating) => ((rating.user, rating.movie), rating))
 
     val toCompare = predictionsByKey
       .join(ratingsByKey)
@@ -152,7 +152,7 @@ object Utils {
     if (toCompare.count() == 0) throw new Exception("Not enough items to compare accuracy")
 
     val (totalDeviation, totalRating) = toCompare
-      .map({case (score, rating) => (math.abs(score - rating), if (score > rating) score else rating)})
+      .map({case (score, rating) => (math.abs(score - rating.score), if (score > rating.score) score else rating.score)})
       .reduce({case ((deviationTot, ratingTot), (deviation, rating)) =>
         (deviationTot + deviation, ratingTot + rating)
       })
