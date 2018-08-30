@@ -5,8 +5,8 @@ import org.scalatest.FunSuite
 class UtilsTest extends FunSuite {
   val sparkConf = new SparkConf()
   sparkConf.setMaster("local[*]")
-  sparkConf.setAppName("Test")
-  val sc = new SparkContext(sparkConf)
+  sparkConf.setAppName("UtilsRDD")
+  val sc: SparkContext = SparkContext.getOrCreate(sparkConf)
   sc.setLogLevel("ERROR")
 
   test("Utils get average user ratings") {

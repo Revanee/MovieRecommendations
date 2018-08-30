@@ -101,8 +101,24 @@ object UtilsRDD {
   def getMovieIds(ratings: RDD[Rating])
   : RDD[Int] = ratings.map(rating => rating.movie).distinct()
 
+  def calculatePearsonSimilarity(userOneRatings: RDD[(Int, Double)], userTwoRatings: RDD[(Int, Double)])
+  :Double = {
+    val allRatings = userOneRatings.join(userTwoRatings)
+    val (x, y, xx, yy, xy, n) = allRatings.map({case (movieID, (x, y)) =>
+      (x, y, x * x, y * y, x * y, 1)
+    }).reduce({case ((xT, yT, xxT, yyT, xyT, nT), (x, y, xx, yy, xy, n)) =>
+      (xT + x, yT + y, xxT + xx, yyT + yy, xyT + xy, nT + n)
+    })
+
+    val numerator = xy - (x * y) / n
+    val denominator1 = xx - x * x / n
+    val denominator2 = yy - y * y / n
+
+    numerator / Math.sqrt(denominator1 * denominator2)
+  }
+
   def getUserSimilarity(ratings: RDD[Rating])
-  :RDD[Similarity] = {
+  : RDD[Similarity] = {
     val userIDs = UtilsRDD.getUserIds(ratings)
     val movieIDs = UtilsRDD.getMovieIds(ratings)
 

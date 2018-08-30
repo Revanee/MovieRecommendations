@@ -11,7 +11,6 @@ object Main extends App {
   println("Initializing spark...")
   val sc = Utils.initSpark("Movie Recommendations")
   val sqlContext = new SQLContext(sc)
-  import sqlContext.implicits._
   println("Spark ready")
 
   println("Loading files...")
@@ -46,6 +45,13 @@ object Main extends App {
   println(s"Ratings related to user: ${ratingsRelatedToUser.count()}")
   println(s"Final ratings: ${ratingsToAnalyze.count()}")
   println("Data ready")
+
+  def getSim(ratings: Iterable[Rating]) = {
+    ratings.map((rating: Rating) => rating.score)
+  }
+  ratingsToAnalyze.groupBy((rating: Rating) => rating.user).map({case (userID, rating: Iterable[Rating]) => {
+    getSim(rating)
+  }})
 
   println("Stopping spark")
   Utils.endProgram("Success", sc)
