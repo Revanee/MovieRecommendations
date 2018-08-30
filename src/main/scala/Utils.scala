@@ -1,6 +1,6 @@
 import java.net.URISyntaxException
 
-import DataClasses.{Rating, Similarity}
+import DataClasses.{MatrixEntry, Rating, Similarity}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext, SparkException}
 import org.apache.spark.sql.{DataFrame, SQLContext}
@@ -88,34 +88,19 @@ object Utils {
     val userIDs = getUserIds(ratings)
     val movieIDs = getMovieIds(ratings)
 
-    val matrix = ratings
-        .cartesian(ratings)
-        .filter({case (rating1: Rating, rating2: Rating) =>
-          rating1.movie == rating2.movie && rating1.user != rating2.user
-        })
-        .map({case (rating1: Rating, rating2: Rating) =>
-          if (rating1.user > rating2.user) (rating1, rating2)
-          else (rating2, rating1)
-        })
-        .distinct()
-        .map({case (rating1: Rating, rating2: Rating) =>
-          (rating1.movie, ((rating1.user, rating1.score), (rating2.user, rating2.score)))
-        })
+    val matrix = getMatrix(ratings)
 
     println(s"Matrix filled ${(100.0 * matrix.count()) / (userIDs.count() * userIDs.count() * movieIDs.count())}%")
 
     val similarities = matrix
-        .map({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
-          ((userID1, userID2),
-            (rating1, rating2, rating1 * rating1, rating2 * rating2, rating1 * rating2, 1))
+        .reduceByKey({case (acc, entry) =>
+          MatrixEntry(
+            acc.x + entry.x, acc.y + entry.y, acc.xx + entry.xx, acc.yy + entry.yy, acc.xy + entry.xy, acc.n + entry.n)
         })
-        .reduceByKey({case ((xTot, yTot, xxTot, yyTot, xyTot, nTot), (x, y, xx, yy, xy, n)) =>
-          (xTot + x, yTot + y, xxTot + xx, yyTot + yy, xyTot + xy, nTot + n)
-        })
-        .map({case ((userID1, userID2), (x, y, xx, yy, xy, n)) =>
-          val numerator = xy - (x * y) / n
-          val denominator1 = xx - (x * x) / n
-          val denominator2 = yy - (y * y) / n
+        .map({case ((userID1, userID2), entry) =>
+          val numerator = entry.xy - (entry.x * entry.y) / entry.n
+          val denominator1 = entry.xx - (entry.x * entry.x) / entry.n
+          val denominator2 = entry.yy - (entry.y * entry.y) / entry.n
 
           val correlation = numerator / Math.sqrt(denominator1 * denominator2)
 
@@ -133,6 +118,27 @@ object Utils {
 
     println(s"Similarities calculated ${100.0 * similarities.count() / ((userIDs.count() * userIDs.count() - userIDs.count) / 2.0)}%")
     similarities
+  }
+
+  def getMatrix(ratings: RDD[Rating])
+  :RDD[((Int, Int), MatrixEntry)] = {
+    ratings
+      .cartesian(ratings)
+      .filter({case (rating1: Rating, rating2: Rating) =>
+        rating1.movie == rating2.movie && rating1.user != rating2.user
+      })
+      .map({case (rating1: Rating, rating2: Rating) =>
+        if (rating1.user > rating2.user) (rating1, rating2)
+        else (rating2, rating1)
+      })
+      .distinct()
+      .map({case (rating1: Rating, rating2: Rating) =>
+        (rating1.movie, ((rating1.user, rating1.score), (rating2.user, rating2.score)))
+      })
+      .map({case (movieID, ((userID1, rating1), (userID2, rating2))) =>
+        ((userID1, userID2),
+          MatrixEntry(rating1, rating2, rating1 * rating1, rating2 * rating2, rating1 * rating2))
+      })
   }
 
   def getUserPredictions(userSimilarities: RDD[Similarity], ratings: RDD[Rating])

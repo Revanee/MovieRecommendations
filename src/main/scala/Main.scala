@@ -31,7 +31,7 @@ object Main extends App {
   println("Preparing data...")
   val movies = moviesDF.rdd
   val allRatings: RDD[Rating] = ratingsDF
-    .limit(1000).rdd
+    .limit(10000).rdd
     .map(row => Rating(row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
   val userToAnalyze = 1
@@ -41,11 +41,12 @@ object Main extends App {
     ratingsRelatedToUser.takeSample(withReplacement = false, (ratingsRelatedToUser.count() / 5).toInt, 61345351)
   )
   val ratingsToAnalyze: RDD[Rating] = ratingsRelatedToUser.subtract(ratingsForTesting)
-
   println(s"Test ratings: ${ratingsForTesting.count()}")
   println(s"Ratings related to user: ${ratingsRelatedToUser.count()}")
   println(s"Final ratings: ${ratingsToAnalyze.count()}")
   println("Data ready")
+
+
 
   println("Stopping spark")
   Utils.endProgram("Success", sc)
