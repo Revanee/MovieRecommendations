@@ -8,31 +8,23 @@ import scala.util.Failure
 import DataClasses._
 
 object Main extends App {
-
   println("Initializing spark...")
   val sc = Utils.initSpark("Movie Recommendations")
   val sqlContext = new SQLContext(sc)
   println("Spark ready")
 
   println("Loading files...")
-  var moviesDF: DataFrame = _
-  Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv")) match {
+  val moviesDF = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("movies.csv")) match {
     case Failure(exception) =>
-      sc.stop()
-      println(exception)
-      println("Movies not loaded")
-      System.exit(0)
-    case Success(value) => moviesDF = value
+      Utils.endProgram("Movies not loaded", sc)
+      throw exception
+    case Success(value) => value
   }
-
-  var ratingsDF: DataFrame = _
-  Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv")) match {
+  val ratingsDF = Utils.loadFileCSV(sc, sqlContext, SparkFiles.get("ratings.csv")) match {
     case Failure(exception) =>
-      sc.stop()
-      println(exception)
-      println("Ratings not loaded")
-      System.exit(0)
-    case Success(value) => ratingsDF = value
+      Utils.endProgram("Ratings not loaded", sc)
+      throw exception
+    case Success(value) => value
   }
   println("Files loaded")
 
@@ -55,9 +47,6 @@ object Main extends App {
   println(s"Final ratings: ${ratingsToAnalyze.count()}")
   println("Data ready")
 
-
-
   println("Stopping spark")
-  sc.stop()
-  println("Done")
+  Utils.endProgram("Success", sc)
 }

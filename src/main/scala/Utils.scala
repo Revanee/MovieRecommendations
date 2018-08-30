@@ -195,4 +195,11 @@ object Utils {
 
     sc
   }
+
+  def endProgram(message: String, sc: SparkContext)
+  :Unit = {
+    println(s"Program ended: $message")
+    sc.stop()
+    System.exit(0)
+  }
 }
