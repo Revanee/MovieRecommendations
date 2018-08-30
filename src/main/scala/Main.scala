@@ -11,6 +11,7 @@ object Main extends App {
   println("Initializing spark...")
   val sc = Utils.initSpark("Movie Recommendations")
   val sqlContext = new SQLContext(sc)
+  import sqlContext.implicits._
   println("Spark ready")
 
   println("Loading files...")
@@ -35,7 +36,7 @@ object Main extends App {
     .map(row => Rating(row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
   val userToAnalyze = 1
-  val ratingsRelatedToUser = Utils.getRatingsRelatedToUser(userToAnalyze, allRatings)
+  val ratingsRelatedToUser = UtilsRDD.getRatingsRelatedToUser(userToAnalyze, allRatings)
 
   val ratingsForTesting: RDD[Rating] = sc.parallelize(
     ratingsRelatedToUser.takeSample(withReplacement = false, (ratingsRelatedToUser.count() / 5).toInt, 61345351)
@@ -45,8 +46,6 @@ object Main extends App {
   println(s"Ratings related to user: ${ratingsRelatedToUser.count()}")
   println(s"Final ratings: ${ratingsToAnalyze.count()}")
   println("Data ready")
-
-
 
   println("Stopping spark")
   Utils.endProgram("Success", sc)
