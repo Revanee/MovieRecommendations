@@ -16,7 +16,7 @@ class UtilsTest extends FunSuite {
     )
     val ratings = sc.parallelize(ratingsSeq)
 
-    assert(Utils.getAvgUserRatings(ratings).collect()(0) === (1, 2.5))
+    assert(Utils.getAvgRatingPerUser(ratings).collect()(0) === (1, 2.5))
   }
 
   test("Utils get user similarity") {
@@ -60,5 +60,26 @@ class UtilsTest extends FunSuite {
     val accuracy = Utils.checkPredictionAccuracy(sc.parallelize(predictions), sc.parallelize(ratings))
 
     assert(accuracy === 50.0)
+  }
+
+  test("Utils get ratings related to user") {
+    val ratings = Seq(
+      (1, 1, 5.0),
+      (1, 2, 5.0),
+      (2, 2, 5.0),
+      (2, 3, 5.0),
+      (3, 1, 5.0),
+      (3, 3, 5.0)
+    ).map(value => Rating.tupled(value))
+
+    val relatedRatings = Seq(
+      (1, 1, 5.0),
+      (1, 2, 5.0),
+      (2, 2, 5.0),
+      (3, 1, 5.0)
+    ).map(value => Rating.tupled(value))
+
+    val relatedRatingsResult = Utils.getRatingsRelatedToUser(1, sc.parallelize(ratings))
+    assert(relatedRatingsResult.collect().toSeq == relatedRatings)
   }
 }
