@@ -2,7 +2,7 @@ import java.net.URISyntaxException
 
 import DataClasses.{Rating, Similarity}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkContext, SparkException}
+import org.apache.spark.{SparkConf, SparkContext, SparkException}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import scala.util.Try
@@ -19,13 +19,11 @@ object Utils {
     }) recover {
       case e: SparkException =>
         e.getCause match {
-          case e2: ClassNotFoundException => {
+          case e2: ClassNotFoundException =>
             val className = e2.getMessage
             throw new Exception(s"$className is not available")
-          }
-          case e2: URISyntaxException => {
+          case e2: URISyntaxException =>
             throw new Exception(s"Something's wrong with the file path ${e2.getMessage}")
-          }
           case e2: Exception =>
             println(e2)
             throw e2
@@ -36,38 +34,63 @@ object Utils {
     }
   }
 
-  def getAvgUserRatings(ratings: RDD[Rating])
+  def getSumOfRatingsPerUser(ratings: RDD[Rating])
   : RDD[(Int, Double)] = {
-
-    val userSumRatings = ratings
+    val sumsOfRatings = ratings
       .map({rating: Rating => (rating.user, rating.score)})
       .reduceByKey((sumRatings, rating) => sumRatings + rating)
 
-    val userNumberOfRatings = ratings
+    sumsOfRatings
+  }
+
+  def getNumberOfRatingsPerUser(ratings: RDD[Rating])
+  : RDD[(Int, Int)] = {
+    ratings
       .map({rating: Rating => (rating.user, 1)})
       .reduceByKey((totalRatings, one) => totalRatings + one)
+  }
 
-    val userAvgRating = userSumRatings
-      .join(userNumberOfRatings)
+  def getAvgRatingPerUser(ratings: RDD[Rating])
+  : RDD[(Int, Double)] = {
+
+    val sumsOfRatings = getSumOfRatingsPerUser(ratings)
+    println(sumsOfRatings.collect().deep.mkString("\n"))
+    val amountsOfRatings = getNumberOfRatingsPerUser(ratings)
+
+    val userAvgRating = sumsOfRatings
+      .join(amountsOfRatings)
       .map({case (userID, (sumOfRatings, numberOfRatings)) => (userID, sumOfRatings / numberOfRatings)})
 
     userAvgRating
   }
 
+  def getRatingsRelatedToUser(user: Int, ratings: RDD[Rating])
+  : RDD[Rating] = {
+    val userRatings = ratings
+      .filter((rating: Rating) => rating.user == user)
+
+    val moviesSeen = userRatings.map((rating: Rating) => rating.movie).collect()
+
+    val relatedRatings = ratings
+      .filter((rating: Rating) => moviesSeen.contains(rating.movie))
+
+    relatedRatings
+  }
+
+  def getUserIds(ratings: RDD[Rating])
+  : RDD[Int] = ratings.map(rating => rating.user).distinct()
+
+  def getMovieIds(ratings: RDD[Rating])
+  : RDD[Int] = ratings.map(rating => rating.movie).distinct()
+
   def getUserSimilarity(ratings: RDD[Rating])
   :RDD[Similarity] = {
-    val userIDs = ratings
-      .map((rating: Rating) => rating.user)
-      .distinct()
-
-    val movieIDs = ratings
-      .map((rating: Rating) => rating.movie)
-      .distinct()
+    val userIDs = getUserIds(ratings)
+    val movieIDs = getMovieIds(ratings)
 
     val matrix = ratings
         .cartesian(ratings)
         .filter({case (rating1: Rating, rating2: Rating) =>
-          //movieID1 == movieID2 && userID1 != userID2
           rating1.movie == rating2.movie && rating1.user != rating2.user
         })
         .map({case (rating1: Rating, rating2: Rating) =>
@@ -120,12 +143,12 @@ object Utils {
 
     val predictions = userSimilarities
         .cartesian(ratings)
-        .filter({case (similarity: Similarity, rating: Rating) => {
+        .filter({case (similarity: Similarity, rating: Rating) =>
           similarity.user == rating.user
-        }})
-        .map({case (similarity: Similarity, rating: Rating) => {
+        })
+        .map({case (similarity: Similarity, rating: Rating) =>
           ((similarity.user, rating.movie), (rating.score * similarity.score, similarity.score))
-        }})
+        })
         .reduceByKey({case ((ratingSum, similaritySum), (rating, similarity)) =>
           (ratingSum + rating, similaritySum + similarity)
         })
@@ -160,5 +183,16 @@ object Utils {
     val accuracy = 100.0 - 100.0 * (totalDeviation / totalRating)
 
     accuracy
+  }
+
+  def initSpark(appName: String)
+  :SparkContext = {
+    val sparkConf = new SparkConf()
+      .setAppName(appName)
+      .set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
+    val sc = new SparkContext(sparkConf)
+    sc.setLogLevel("ERROR")
+
+    sc
   }
 }

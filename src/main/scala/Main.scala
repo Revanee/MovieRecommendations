@@ -1,6 +1,6 @@
-import org.apache.log4j.Logger
 import org.apache.spark.sql._
 import org.apache.spark.{SparkConf, SparkContext, SparkFiles}
+import org.apache.spark.rdd.RDD
 
 import scala.util.Success
 import scala.util.Failure
@@ -10,15 +10,9 @@ import DataClasses._
 object Main extends App {
 
   println("Initializing spark...")
-  val sparkConf = new SparkConf()
-    .setAppName("Movie Recommendations")
-    .set("spark.streaming.stopGracefullyOnShutdown","true") //This is needed to avoid errors on program end
-  val sc = new SparkContext(sparkConf)
-  sc.setLogLevel("ERROR")
+  val sc = Utils.initSpark("Movie Recommendations")
   val sqlContext = new SQLContext(sc)
   println("Spark ready")
-
-  val logger = Logger.getLogger("org")
 
   println("Loading files...")
   var moviesDF: DataFrame = _
@@ -44,36 +38,24 @@ object Main extends App {
 
   println("Preparing data...")
   val movies = moviesDF.rdd
-  val allRatings = ratingsDF
+  val allRatings: RDD[Rating] = ratingsDF
     .limit(1000).rdd
     .map(row => Rating(row(0).toString.toInt, row(1).toString.toInt, row(2).toString.toDouble))
 
-  val testRatings = sc.parallelize(allRatings.takeSample(false, 50, 61345351))
-  val ratings = allRatings.subtract(testRatings)
+  val userToAnalyze = 1
+  val ratingsRelatedToUser = Utils.getRatingsRelatedToUser(userToAnalyze, allRatings)
 
-  val movieTitles = movies
-    .map(row => (row(0).toString.toInt, row(1).toString))
+  val ratingsForTesting: RDD[Rating] = sc.parallelize(
+    ratingsRelatedToUser.takeSample(withReplacement = false, (ratingsRelatedToUser.count() / 5).toInt, 61345351)
+  )
+  val ratingsToAnalyze: RDD[Rating] = ratingsRelatedToUser.subtract(ratingsForTesting)
 
-  val totalUsers = ratings
-    .map(rating => rating.user)
-    .distinct()
-    .count()
+  println(s"Test ratings: ${ratingsForTesting.count()}")
+  println(s"Ratings related to user: ${ratingsRelatedToUser.count()}")
+  println(s"Final ratings: ${ratingsToAnalyze.count()}")
   println("Data ready")
 
-  println("Calculating average user ratings...")
-  val userAvgRating = Utils.getAvgUserRatings(ratings)
-  println(s"Calculated ${userAvgRating.count()} average ratings")
 
-  println("Calculating user similarities...")
-  val userSimilarities = Utils.getUserSimilarity(ratings)
-  val totalUserSimilarities = userSimilarities.count()
-  println(s"Calculated $totalUserSimilarities user similarities")
-
-  println("Calculating predictions")
-  val predictions = Utils.getUserPredictions(userSimilarities, ratings)
-  println(s"Calculated ${predictions.count()} predictions")
-
-  println(s"Accuracy ${Utils.checkPredictionAccuracy(predictions, testRatings)}%")
 
   println("Stopping spark")
   sc.stop()
