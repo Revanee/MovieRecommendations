@@ -79,7 +79,7 @@ class UtilsTest extends FunSuite {
       (3, 1, 5.0)
     ).map(value => Rating.tupled(value))
 
-    val relatedRatingsResult = UtilsRDD.getRatingsRelatedToUser(1, sc.parallelize(ratings))
+    val relatedRatingsResult = UtilsRDD.getRatingsRelatedToUser(sc.parallelize(ratings), 1)
     assert(relatedRatingsResult.collect().toSeq == relatedRatings)
   }
 }

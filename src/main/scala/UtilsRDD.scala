@@ -1,7 +1,11 @@
 import DataClasses.{MatrixEntry, Rating, Similarity}
 import org.apache.spark.rdd.RDD
 
+import scala.util.{Try, Success, Failure}
+
 object UtilsRDD {
+
+  //To change
   def getSumOfRatingsPerUser(ratings: RDD[Rating])
   : RDD[(Int, Double)] = {
     val sumsOfRatings = ratings
@@ -11,6 +15,7 @@ object UtilsRDD {
     sumsOfRatings
   }
 
+  //To change
   def getUserPredictions(userSimilarities: RDD[Similarity], ratings: RDD[Rating])
   :RDD[Rating] = {
 
@@ -38,6 +43,7 @@ object UtilsRDD {
     predictions
   }
 
+  //To change
   def checkPredictionAccuracy(predictions: RDD[Rating], ratings: RDD[Rating])
   :Double = {
     val predictionsByKey = predictions
@@ -61,6 +67,7 @@ object UtilsRDD {
     accuracy
   }
 
+  //To change
   def getNumberOfRatingsPerUser(ratings: RDD[Rating])
   : RDD[(Int, Int)] = {
     ratings
@@ -68,6 +75,7 @@ object UtilsRDD {
       .reduceByKey((totalRatings, one) => totalRatings + one)
   }
 
+  //To change
   def getAvgRatingPerUser(ratings: RDD[Rating])
   : RDD[(Int, Double)] = {
 
@@ -82,7 +90,10 @@ object UtilsRDD {
     userAvgRating
   }
 
-  def getRatingsRelatedToUser(user: Int, ratings: RDD[Rating])
+  def getRatingsOfUser(ratings: RDD[Rating], user: Int)
+  : RDD[Rating] = ratings.filter((rating: Rating) => rating.user == user)
+
+  def getRatingsRelatedToUser(ratings: RDD[Rating], user: Int)
   : RDD[Rating] = {
     val userRatings = ratings
       .filter((rating: Rating) => rating.user == user)
@@ -98,11 +109,12 @@ object UtilsRDD {
   def getUserIds(ratings: RDD[Rating])
   : RDD[Int] = ratings.map(rating => rating.user).distinct()
 
+  //To change
   def getMovieIds(ratings: RDD[Rating])
   : RDD[Int] = ratings.map(rating => rating.movie).distinct()
 
   def calculatePearsonSimilarity(userOneRatings: RDD[(Int, Double)], userTwoRatings: RDD[(Int, Double)])
-  :Double = {
+  :Try[Double] = {
     val allRatings = userOneRatings.join(userTwoRatings)
     val (x, y, xx, yy, xy, n) = allRatings.map({case (movieID, (x, y)) =>
       (x, y, x * x, y * y, x * y, 1)
@@ -114,9 +126,13 @@ object UtilsRDD {
     val denominator1 = xx - x * x / n
     val denominator2 = yy - y * y / n
 
-    numerator / Math.sqrt(denominator1 * denominator2)
+    if (denominator1.isNaN || denominator2.isNaN || denominator1 == 0 || denominator2 == 0)
+      return Failure(new ArithmeticException("Dividing by 0"))
+
+    Success(numerator / Math.sqrt(denominator1 * denominator2))
   }
 
+  //To change
   def getUserSimilarity(ratings: RDD[Rating])
   : RDD[Similarity] = {
     val userIDs = UtilsRDD.getUserIds(ratings)
@@ -154,6 +170,7 @@ object UtilsRDD {
     similarities
   }
 
+  //To change
   def getMatrix(ratings: RDD[Rating])
   :RDD[((Int, Int), MatrixEntry)] = {
     ratings
