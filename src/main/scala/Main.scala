@@ -7,6 +7,7 @@ object Main extends App {
   val sc = Utils.initSpark("Main")
   val sqlContext = new SQLContext(sc)
 
+  //Load files in SparkContext
   val moviesUrl = s"${sys.env("FILE_SERVER_URL")}/movies.csv"
   val ratingsUrl = s"${sys.env("FILE_SERVER_URL")}/ratings.csv"
   if (Try(sc.addFile(moviesUrl)).isFailure ||
@@ -14,11 +15,13 @@ object Main extends App {
     Utils.endProgram("Critical files not added to SparkContext!", sc)
   }
 
-  val movies = Utils.loadFileCSV(sqlContext, SparkFiles.get("movies.csv"))
-  val ratings = Utils.loadFileCSV(sqlContext, SparkFiles.get("ratings.csv"))
-  if (movies.isFailure || ratings.isFailure) {
+  //Load DataFrames from files
+  val moviesTry = Utils.loadFileCSV(sqlContext, SparkFiles.get("movies.csv"))
+  val ratingsTry = Utils.loadFileCSV(sqlContext, SparkFiles.get("ratings.csv"))
+  if (moviesTry.isFailure || ratingsTry.isFailure)
     Utils.endProgram("CSV files not loaded into DataFrames", sc)
-  }
+  val movies = moviesTry.get
+  val ratings = ratingsTry.get
 
   println(movies)
   println(ratings)
