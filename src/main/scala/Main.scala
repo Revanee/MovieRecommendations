@@ -18,13 +18,17 @@ object Main extends App {
   //Load DataFrames from files
   val moviesTry = Utils.loadFileCSV(sqlContext, SparkFiles.get("movies.csv"))
   val ratingsTry = Utils.loadFileCSV(sqlContext, SparkFiles.get("ratings.csv"))
-  if (moviesTry.isFailure || ratingsTry.isFailure)
-    Utils.endProgram("CSV files not loaded into DataFrames", sc)
+  if (moviesTry.isFailure) Utils.endProgram("Movies CSV not loaded into DataFrame", sc)
+  if (ratingsTry.isFailure) Utils.endProgram("Ratings CSV not loaded into DataFrame", sc)
+
   val movies = moviesTry.get
   val ratings = ratingsTry.get
 
-  println(movies)
-  println(ratings)
+  val relatedRatings = UtilsDF.getRatingsRelatedToUser(ratings, 1)
+  relatedRatings match {
+    case Success(value) => value.show()
+    case Failure(exception) => Utils.endProgram(exception.getMessage, sc)
+  }
 
   Utils.endProgram("Done", sc)
 }
