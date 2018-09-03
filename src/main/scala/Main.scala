@@ -1,5 +1,6 @@
 import org.apache.spark.SparkFiles
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.functions._
 
 import scala.util.{Failure, Success, Try}
 
@@ -24,11 +25,10 @@ object Main extends App {
   val movies = moviesTry.get
   val ratings = ratingsTry.get
 
-  val relatedRatings = UtilsDF.getRatingsRelatedToUser(ratings, 1)
-  relatedRatings match {
-    case Success(value) => value.show()
-    case Failure(exception) => Utils.endProgram(exception.getMessage, sc)
-  }
+  val relatedRatings = ratings
+    .transform(UtilsDF.getRatingsRelatedToUser(1))
+
+  relatedRatings.show()
 
   Utils.endProgram("Done", sc)
 }
