@@ -26,7 +26,7 @@ object Main extends App {
   val ratings = ratingsTry.get
 
   val relatedRatings = ratings
-    .transform(UtilsDF.getRatingsRelatedToUser(1))
+    .transform(UtilsDF.relatedToId(1, "userId", "movieId"))
 
   relatedRatings.show()
 
