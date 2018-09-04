@@ -18,12 +18,32 @@ object UtilsDF {
     relatedEntries
   }
 
-  def allUniqueIdPairs(ids: DataFrame): DataFrame = {
-    val otherIds = ids.select(col("id").alias("otherId"))
-    ids.join(otherIds).filter(col("id") !== col("otherId"))
+  def allUniqueIdPairs(idCol: String, otherIdName: String)(entries: DataFrame): DataFrame = {
+    val otherIds = entries.select(col(idCol).alias(otherIdName))
+    entries.join(otherIds).filter(col(idCol) !== col(otherIdName))
   }
 
-  def matrixForSimilarity(ratings: DataFrame): Unit = {
+  def userPairRatings(ratings: DataFrame): DataFrame = {
+    ratings
+      .join(ratings.select(col("userId").as("userId2"),
+        col("movieId").as("movieId2"),
+        col("rating").as("rating2")))
+      .filter(col("userId") !== col("userId2"))
+      .filter(col("movieId") === col("movieId2"))
+      .groupBy("movieId")
+      .agg(
+        first("userId").as("userId"),
+        first("userId2").as("userId2"),
+        first("rating").as("rating"),
+        first("rating2").as("rating2"))
+  }
 
+  def withMatrixFromRatings(xCol: String, yCol: String)(ratings: DataFrame): DataFrame = {
+    ratings
+      .withColumn("x", col(xCol))
+      .withColumn("y", col(yCol))
+      .withColumn("xx", col("x").*(col("x")))
+      .withColumn("yy", col("y").*(col("y")))
+      .withColumn("xy", col("x").*(col("y")))
   }
 }

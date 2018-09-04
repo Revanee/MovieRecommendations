@@ -52,11 +52,39 @@ class UtilsDFTest extends FunSuite{
       (3, 2)
     ).toDF("id1", "id2")
 
-    val results = ids.transform(UtilsDF.allUniqueIdPairs)
+    val results = ids.transform(UtilsDF.allUniqueIdPairs("id", "id2"))
     assert(results.count() == expected.count())
   }
 
-  test("Get matrix for entries") {
-    assert(1 == 1)
+  test("Get ratings of user pairs") {
+    val ratings = Seq(
+      (1, 1, 3.1),
+      (1, 2, 3.2),
+      (2, 2, 3.3),
+      (2, 3, 3.4)
+    ).toDF("userId", "movieId", "rating")
+
+    val expected = Seq(
+      (2, 1, 2, 3.2, 3.3)
+    ).toDF("movieId", "userId", "userId2", "rating", "rating2")
+
+    val results = ratings.transform(UtilsDF.userPairRatings)
+    assert(results.except(expected).count() == 0)
+  }
+
+  test("Get matrix for similarity") {
+    val pairRatings = Seq(
+      (3.1, 4.1),
+      (3.2, 4.2)
+    ).toDF("x", "y")
+
+    val expected = Seq(
+      (3.1, 4.1, 3.1 * 3.1, 4.1 * 4.1, 3.1 * 4.1),
+      (3.2, 4.2, 3.2 * 3.2, 4.2 * 4.2, 3.2 * 4.2)
+    ).toDF("x", "y", "xx", "yy", "xy")
+
+    val results = pairRatings.transform(UtilsDF.withMatrixFromRatings("x", "y"))
+
+    assert(results.except(expected).count() == 0)
   }
 }
