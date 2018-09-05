@@ -47,7 +47,7 @@ object UtilsDF {
       .withColumn("xy", col("x").*(col("y")))
   }
 
-  def getSimilarityFromMatrix(matrix: DataFrame): DataFrame = {
+  def withSimilarityFromMatrix(matrix: DataFrame): DataFrame = {
     matrix.withColumn("similarity", {
       val numerator = col("xy") - col("x") * col("y") / col("n")
       val denominator1 = col("xx") - col("x") * col("x") / col("n")

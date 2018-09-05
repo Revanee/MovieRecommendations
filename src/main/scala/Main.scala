@@ -39,7 +39,7 @@ object Main extends App {
         sum(col("yy")).alias("yy"),
         sum(col("xy")).alias("xy"),
         sum(col("one")).alias("n"))
-      .transform(UtilsDF.getSimilarityFromMatrix)
+      .transform(UtilsDF.withSimilarityFromMatrix)
 
   similarity.show()
 

@@ -95,7 +95,7 @@ class UtilsDFTest extends FunSuite{
 
     val expected = -0.8660254037844387
 
-    val result = matrix.transform(UtilsDF.getSimilarityFromMatrix)
+    val result = matrix.transform(UtilsDF.withSimilarityFromMatrix)
 
     assert(result.select("similarity").collect().head.get(0) === expected)
   }
