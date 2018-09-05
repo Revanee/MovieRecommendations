@@ -1,3 +1,4 @@
+import DataClasses.Rating
 import org.apache.spark.SparkFiles
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.functions._
@@ -25,8 +26,14 @@ object Main extends App {
   val movies = moviesTry.get
   val ratings = ratingsTry.get
 
-  val relatedRatings = ratings
+  val relatedRatingsAll = ratings
     .transform(UtilsDF.relatedToId(1, "userId", "movieId"))
+
+  val testRatings = relatedRatingsAll.sample(false, .1)
+  val relatedRatings = relatedRatingsAll//.except(testRatings)
+
+  testRatings.show()
+  relatedRatings.show()
 
   val similarity = relatedRatings
       .transform(UtilsDF.toUserPairRatings)
@@ -42,6 +49,31 @@ object Main extends App {
       .transform(UtilsDF.withSimilarityFromMatrix)
 
   similarity.show()
+
+  val predictions = similarity
+    .join(relatedRatings, similarity.col("userId2") === relatedRatings.col("userId"))
+    .groupBy(similarity.col("userId"), relatedRatings.col("movieId"))
+    .agg(
+      sum(col("rating") * col("similarity")).alias("rs"),
+      sum(col("similarity")).alias("s"))
+    .withColumn("prediction", col("rs") / col("s"))
+
+  predictions.show()
+
+  val predictionsRDD = predictions
+      .filter(!isnull(col("prediction")))
+    .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(4).toString.toDouble))
+  val testRatingsRDD = testRatings
+    .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(2).toString.toDouble))
+
+  predictionsRDD.count()
+  testRatingsRDD.count()
+
+  println("Checking accuracy")
+
+  val accuracy = UtilsRDD.checkPredictionAccuracy(predictionsRDD, testRatingsRDD)
+
+  println(s"Prediction accuracy: $accuracy")
 
   Utils.endProgram("Done", sc)
 }
