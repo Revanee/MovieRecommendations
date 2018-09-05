@@ -38,8 +38,6 @@ object UtilsRDD {
         })
         .filter((prediction: Rating) => !prediction.score.isNaN)
 
-    println(s"Predictions calculated ${100.0 * predictions.count() / (totalUsers * totalMovies)}%")
-
     predictions
   }
 
@@ -80,7 +78,6 @@ object UtilsRDD {
   : RDD[(Int, Double)] = {
 
     val sumsOfRatings = getSumOfRatingsPerUser(ratings)
-    println(sumsOfRatings.collect().deep.mkString("\n"))
     val amountsOfRatings = UtilsRDD.getNumberOfRatingsPerUser(ratings)
 
     val userAvgRating = sumsOfRatings
@@ -140,8 +137,6 @@ object UtilsRDD {
 
     val matrix = getMatrix(ratings)
 
-    println(s"Matrix filled ${(100.0 * matrix.count()) / (userIDs.count() * userIDs.count() * movieIDs.count())}%")
-
     val similarities = matrix
         .reduceByKey({case (acc, entry) =>
           MatrixEntry(
@@ -166,7 +161,6 @@ object UtilsRDD {
           Similarity(userID1, userID2, score)
         })
 
-    println(s"Similarities calculated ${100.0 * similarities.count() / ((userIDs.count() * userIDs.count() - userIDs.count) / 2.0)}%")
     similarities
   }
 
