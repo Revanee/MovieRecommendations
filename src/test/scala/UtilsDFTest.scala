@@ -87,4 +87,18 @@ class UtilsDFTest extends FunSuite{
 
     assert(results.except(expected).count() == 0)
   }
+
+  test("Get similarity from matrix") {
+    val matrix = Seq(
+      (4, 1, 16, 1, 4),
+      (2, 4, 4, 16, 8),
+      (3, 4, 9, 16, 12)
+    ).toDF("x", "y", "xx", "yy", "xy")
+
+    val expected = -0.8660254037844387
+
+    val result = UtilsDF.getSimilarityFromMatrix(matrix)
+
+    assert(result === expected)
+  }
 }
