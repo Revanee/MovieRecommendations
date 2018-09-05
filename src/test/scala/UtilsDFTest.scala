@@ -90,9 +90,6 @@ class UtilsDFTest extends FunSuite{
 
   test("Get similarity from matrix") {
     val matrix = Seq(
-      //      (4, 1, 16, 1, 4),
-      //      (2, 4, 4, 16, 8),
-      //      (3, 4, 9, 16, 12),
       (9, 9, 29, 33, 24, 3)
     ).toDF("x", "y", "xx", "yy", "xy", "n")
 
