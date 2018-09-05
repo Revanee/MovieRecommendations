@@ -23,7 +23,7 @@ object UtilsDF {
     entries.join(otherIds).filter(col(idCol) !== col(otherIdName))
   }
 
-  def userPairRatings(ratings: DataFrame): DataFrame = {
+  def toUserPairRatings(ratings: DataFrame): DataFrame = {
     ratings
       .join(ratings.select(col("userId").as("userId2"),
         col("movieId").as("movieId2"),
@@ -47,27 +47,13 @@ object UtilsDF {
       .withColumn("xy", col("x").*(col("y")))
   }
 
-  def getSimilarityFromMatrix(matrix: DataFrame): Any = {
-    val n = matrix.count()
-    val (x, y, xx, yy, xy) = matrix.agg(
-      sum("x"),
-      sum("y"),
-      sum("xx"),
-      sum("yy"),
-      sum("xy")
-    ).collect().map(row =>
-      (row(0).asInstanceOf[Long],
-        row(1).asInstanceOf[Long],
-        row(2).asInstanceOf[Long],
-        row(3).asInstanceOf[Long],
-        row(4).asInstanceOf[Long])).lift(0).get
+  def getSimilarityFromMatrix(matrix: DataFrame): DataFrame = {
+    matrix.withColumn("similarity", {
+      val numerator = col("xy") - col("x") * col("y") / col("n")
+      val denominator1 = col("xx") - col("x") * col("x") / col("n")
+      val denominator2 = col("yy") - col("y") * col("y") / col("n")
 
-    val numerator = xy - x * y / n
-    val denominator1 = xx - x * x / n
-    val denominator2 = yy - y * y / n
-
-    println(xy, x, y)
-
-    numerator / Math.sqrt(denominator1 * denominator2)
+      numerator / sqrt(denominator1 * denominator2)
+    })
   }
 }

@@ -68,7 +68,7 @@ class UtilsDFTest extends FunSuite{
       (2, 1, 2, 3.2, 3.3)
     ).toDF("movieId", "userId", "userId2", "rating", "rating2")
 
-    val results = ratings.transform(UtilsDF.userPairRatings)
+    val results = ratings.transform(UtilsDF.toUserPairRatings)
     assert(results.except(expected).count() == 0)
   }
 
@@ -90,15 +90,16 @@ class UtilsDFTest extends FunSuite{
 
   test("Get similarity from matrix") {
     val matrix = Seq(
-      (4, 1, 16, 1, 4),
-      (2, 4, 4, 16, 8),
-      (3, 4, 9, 16, 12)
-    ).toDF("x", "y", "xx", "yy", "xy")
+      //      (4, 1, 16, 1, 4),
+      //      (2, 4, 4, 16, 8),
+      //      (3, 4, 9, 16, 12),
+      (9, 9, 29, 33, 24, 3)
+    ).toDF("x", "y", "xx", "yy", "xy", "n")
 
     val expected = -0.8660254037844387
 
-    val result = UtilsDF.getSimilarityFromMatrix(matrix)
+    val result = matrix.transform(UtilsDF.getSimilarityFromMatrix)
 
-    assert(result === expected)
+    assert(result.select("similarity").collect().head.get(0) === expected)
   }
 }

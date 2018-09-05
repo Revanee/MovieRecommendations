@@ -28,7 +28,20 @@ object Main extends App {
   val relatedRatings = ratings
     .transform(UtilsDF.relatedToId(1, "userId", "movieId"))
 
-  relatedRatings.show()
+  val similarity = relatedRatings
+      .transform(UtilsDF.toUserPairRatings)
+      .transform(UtilsDF.withMatrixFromRatings("rating", "rating2"))
+      .withColumn("one", lit(1))
+      .groupBy(col("userId"), col("userId2"))
+      .agg(sum(col("x")).alias("x"),
+        sum(col("y")).alias("y"),
+        sum(col("xx")).alias("xx"),
+        sum(col("yy")).alias("yy"),
+        sum(col("xy")).alias("xy"),
+        sum(col("one")).alias("n"))
+      .transform(UtilsDF.getSimilarityFromMatrix)
+
+  similarity.show()
 
   Utils.endProgram("Done", sc)
 }
