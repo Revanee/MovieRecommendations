@@ -66,4 +66,18 @@ object UtilsDF {
       .withColumn("prediction", col("rs") / col("s"))
       .select(col(userIdCol), col(itemIdCol), col("prediction"))
   }
+
+  def toAccuracy(maxRating: Double)(ratings: DataFrame): DataFrame = {
+    ratings
+      .withColumn("deviation", {
+        val difference = abs(col("rating") - col("prediction"))
+        val differenceInPercent = difference / maxRating
+        differenceInPercent
+      })
+      .withColumn("n", lit(1))
+      .groupBy("userId")
+      .agg(sum("deviation").alias("deviation"), sum("n").alias("n"))
+      .withColumn("accuracy", lit(1.0) - col("deviation") / col("n"))
+      .select(col("userId"), col("accuracy"))
+  }
 }

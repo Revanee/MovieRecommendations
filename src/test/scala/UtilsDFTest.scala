@@ -118,4 +118,28 @@ class UtilsDFTest extends FunSuite{
 
     assert(predictions.select(predictions.col("prediction")).collect().head.get(0).equals(exprected))
   }
+
+  test("Get prediction accuracy") {
+    val predictionsAndRatings = Seq(
+      (1, 1, 4.0, 4.0),
+      (1, 2, 3.0, 3.0),
+      (2, 1, 4.0, 2.0),
+      (2, 2, 3.0, 1.5),
+      (3, 1, 5.0, 0.0),
+      (3, 2, 0.0, 5.0),
+      (4, 1, 2.0, 4.0),
+      (4, 2, 1.5, 3.0)
+    ).toDF("userId", "movieId", "prediction", "rating")
+
+    val expected = Seq(
+      (1, 1.0),
+      (2, .65),
+      (3, .0),
+      (4, .65)
+    ).toDF("userId", "accuracy")
+
+    val result = predictionsAndRatings.transform(UtilsDF.toAccuracy(5.0))
+
+    assert(result.except(expected).count() == 0)
+  }
 }
