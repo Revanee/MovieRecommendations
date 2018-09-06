@@ -29,7 +29,7 @@ object Main extends App {
   val relatedRatingsAll = ratings
     .transform(UtilsDF.relatedToId(1, "userId", "movieId"))
 
-  val testRatings = relatedRatingsAll.sample(false, .1)
+  val testRatings = relatedRatingsAll.sample(withReplacement = false, .1)
   val relatedRatings = relatedRatingsAll//.except(testRatings)
 
   testRatings.show()
@@ -50,19 +50,24 @@ object Main extends App {
 
   similarity.show()
 
-  val predictions = similarity
-    .join(relatedRatings, similarity.col("userId2") === relatedRatings.col("userId"))
-    .groupBy(similarity.col("userId"), relatedRatings.col("movieId"))
-    .agg(
-      sum(col("rating") * col("similarity")).alias("rs"),
-      sum(col("similarity")).alias("s"))
-    .withColumn("prediction", col("rs") / col("s"))
+  val ratingsWithSimilarity = relatedRatings
+    .join(similarity, similarity.col("userId2") === relatedRatings.col("userId"))
+    .select(similarity.col("userId"),
+      similarity.col("userId2"),
+      col("movieId"),
+      col("rating"),
+      col("similarity"))
+
+  ratingsWithSimilarity.filter(col("movieId") === 1371).show()
+
+  val predictions = ratingsWithSimilarity
+      .transform(UtilsDF.toPredictions("userId", "movieId", "rating", "similarity"))
 
   predictions.show()
 
   val predictionsRDD = predictions
       .filter(!isnull(col("prediction")))
-    .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(4).toString.toDouble))
+    .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(2).toString.toDouble))
   val testRatingsRDD = testRatings
     .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(2).toString.toDouble))
 
