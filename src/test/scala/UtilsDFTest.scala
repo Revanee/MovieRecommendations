@@ -99,4 +99,23 @@ class UtilsDFTest extends FunSuite{
 
     assert(result.select("similarity").collect().head.get(0) === expected)
   }
+
+  test("Get predictions from similarities and ratings") {
+    val ratingsWithSimilarity = Seq(
+      (1,1371,4.0,0.06875238727711523),
+      (1,1371,3.0,-0.899228803025897),
+      (1,1371,4.0,0.0)
+    ).toDF("userId", "movieId", "rating", "similarity")
+
+    val exprected = 2.9172133175929793
+
+    val predictions = ratingsWithSimilarity
+      .transform(UtilsDF.toPredictions(
+        "userId",
+        "movieId",
+        "rating",
+        "similarity"))
+
+    assert(predictions.select(predictions.col("prediction")).collect().head.get(0).equals(exprected))
+  }
 }

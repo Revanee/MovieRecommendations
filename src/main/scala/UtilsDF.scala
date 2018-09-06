@@ -56,4 +56,14 @@ object UtilsDF {
       numerator / sqrt(denominator1 * denominator2)
     })
   }
+
+  def toPredictions(userIdCol: String, itemIdCol: String, ratingCol: String, similarityCol:String)
+  (ratings: DataFrame): DataFrame = {
+    ratings.groupBy(col(userIdCol), col(itemIdCol))
+      .agg(
+        sum(col(ratingCol) * col(similarityCol)).alias("rs"),
+        sum(col(similarityCol)).alias("s"))
+      .withColumn("prediction", col("rs") / col("s"))
+      .select(col(userIdCol), col(itemIdCol), col("prediction"))
+  }
 }
