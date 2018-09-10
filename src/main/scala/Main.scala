@@ -41,8 +41,6 @@ object Main extends App {
         sum(col("one")).alias("n"))
       .transform(UtilsDF.withSimilarityFromMatrix)
 
-  similarity.show()
-
   val ratingsWithSimilarity = relatedRatings
     .join(similarity, similarity.col("userId2") === relatedRatings.col("userId"))
     .select(similarity.col("userId"),
@@ -51,12 +49,10 @@ object Main extends App {
       col("rating"),
       col("similarity"))
 
-  ratingsWithSimilarity.filter(col("movieId") === 1371).show()
 
   val predictions = ratingsWithSimilarity
       .transform(UtilsDF.toPredictions("userId", "movieId", "rating", "similarity"))
       .toDF("userId", "movieId", "prediction")
-  predictions.show()
 
   val predictionsWithActual =  predictions
     .join(relatedRatings,
