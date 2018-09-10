@@ -26,14 +26,8 @@ object Main extends App {
   val movies = moviesTry.get
   val ratings = ratingsTry.get
 
-  val relatedRatingsAll = ratings
+  val relatedRatings = ratings
     .transform(UtilsDF.relatedToId(1, "userId", "movieId"))
-
-  val testRatings = relatedRatingsAll.sample(withReplacement = false, .1)
-  val relatedRatings = relatedRatingsAll//.except(testRatings)
-
-  testRatings.show()
-  relatedRatings.show()
 
   val similarity = relatedRatings
       .transform(UtilsDF.toUserPairRatings)
@@ -62,23 +56,23 @@ object Main extends App {
 
   val predictions = ratingsWithSimilarity
       .transform(UtilsDF.toPredictions("userId", "movieId", "rating", "similarity"))
-
+      .toDF("userId", "movieId", "prediction")
   predictions.show()
 
-  val predictionsRDD = predictions
-      .filter(!isnull(col("prediction")))
-    .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(2).toString.toDouble))
-  val testRatingsRDD = testRatings
-    .map(row => Rating(row(0).asInstanceOf[Int], row(1).asInstanceOf[Int], row(2).toString.toDouble))
+  val predictionsWithActual =  predictions
+    .join(relatedRatings,
+      relatedRatings.col("userId") === predictions.col("userId") &&
+      relatedRatings.col("movieId") === predictions.col("movieId"))
 
-  predictionsRDD.count()
-  testRatingsRDD.count()
+  predictionsWithActual.show()
 
   println("Checking accuracy")
 
-  val accuracy = UtilsRDD.checkPredictionAccuracy(predictionsRDD, testRatingsRDD)
-
-  println(s"Prediction accuracy: $accuracy")
+  val accuracy = predictionsWithActual
+    .select(relatedRatings.col("userId"), relatedRatings.col("movieId"),
+      col("rating"), col("prediction"))
+    .transform(UtilsDF.toAccuracy(5.0))
+  accuracy.show()
 
   Utils.endProgram("Done", sc)
 }
