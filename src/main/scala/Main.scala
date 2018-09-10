@@ -1,9 +1,8 @@
-import DataClasses.Rating
 import org.apache.spark.SparkFiles
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.functions._
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object Main extends App {
   val sc = Utils.initSpark("Main")
