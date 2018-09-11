@@ -59,13 +59,15 @@ object UtilsDF {
 
   def toPredictions(userIdCol: String, itemIdCol: String, ratingCol: String, similarityCol:String)
   (ratings: DataFrame): DataFrame = {
-    ratings.groupBy(col(userIdCol), col(itemIdCol))
+    ratings
+      .withColumn("one", lit(1))
+      .groupBy(col(userIdCol), col(itemIdCol))
       .agg(
         sum(col(ratingCol) * col(similarityCol)).alias("rs"),
         sum(col(similarityCol)).alias("s"),
-        sum(col("confidenceOfSimilarity")).alias("confidenceOfSimilarity"))
+        (sum(abs(col(similarityCol))) / sum(col("one"))).alias("confidence"))
       .withColumn("prediction", col("rs") / col("s"))
-      .select(col(userIdCol), col(itemIdCol), col("prediction"), col("confidenceOfSimilarity"))
+      .select(col(userIdCol), col(itemIdCol), col("prediction"), col("confidence"))
   }
 
   def toAccuracy(maxRating: Double)(ratings: DataFrame): DataFrame = {
@@ -77,8 +79,8 @@ object UtilsDF {
       })
       .withColumn("n", lit(1))
       .groupBy("userId")
-      .agg(sum("deviation").alias("deviation"), sum("n").alias("n"))
+      .agg(sum("deviation").alias("deviation"), sum("n").alias("n"), avg("confidence"))
       .withColumn("accuracy", lit(1.0) - col("deviation") / col("n"))
-      .select(col("userId"), col("accuracy"))
+//      .select(col("userId"), col("accuracy"))
   }
 }

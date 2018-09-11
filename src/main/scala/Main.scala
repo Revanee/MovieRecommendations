@@ -50,23 +50,20 @@ object Main extends App {
       col("userId2").alias("ratedBy"),
       col("movieId"),
       col("rating"),
-      col("similarity"),
-      col("n").alias("confidenceOfSimilarity"))
+      col("similarity"))
 
   ratingsWithSimilarity.show()
 
   val predictions = ratingsWithSimilarity
       .transform(
         UtilsDF.toPredictions("userId", "movieId", "rating", "similarity"))
-      .toDF("userId", "movieId", "prediction", "confidenceOfSimilarity") //Fix spark ambiguity bug
+      .toDF("userId", "movieId", "prediction", "confidence") //Fix spark ambiguity bug
   predictions.show()
 
   val predictionsWithActual =  predictions
     .join(ratingsToProcess,
       ratingsToProcess.col("userId") === predictions.col("userId") &&
       ratingsToProcess.col("movieId") === predictions.col("movieId"))
-    .orderBy(desc("confidenceOfSimilarity"))
-    .limit(50)
 
   predictionsWithActual.show()
 
@@ -74,9 +71,9 @@ object Main extends App {
 
   val accuracy = predictionsWithActual
     .select(ratingsToProcess.col("userId"), ratingsToProcess.col("movieId"),
-      col("rating"), col("prediction"))
+      col("rating"), col("prediction"), col("confidence"))
     .transform(UtilsDF.toAccuracy(5.0))
-  accuracy.show()
+  accuracy.filter(col("accuracy").isNotNull).sort(desc("accuracy")).show()
 
   Utils.endProgram("Done", sc)
 }
