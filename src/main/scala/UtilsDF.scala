@@ -6,7 +6,7 @@ object UtilsDF {
     ratings.filter(col(idCol).equalTo(id))
   }
 
-  def relatedToId(id: Int, idCol: String, commonItemCol: String)(entries: DataFrame): DataFrame = {
+  def OnlyRelatedToId(id: Int, idCol: String, commonItemCol: String)(entries: DataFrame): DataFrame = {
     val itemsOfId = entries
       .transform(ofId(id, idCol))
       .select(commonItemCol)
@@ -62,9 +62,10 @@ object UtilsDF {
     ratings.groupBy(col(userIdCol), col(itemIdCol))
       .agg(
         sum(col(ratingCol) * col(similarityCol)).alias("rs"),
-        sum(col(similarityCol)).alias("s"))
+        sum(col(similarityCol)).alias("s"),
+        sum(col("confidenceOfSimilarity")).alias("confidenceOfSimilarity"))
       .withColumn("prediction", col("rs") / col("s"))
-      .select(col(userIdCol), col(itemIdCol), col("prediction"))
+      .select(col(userIdCol), col(itemIdCol), col("prediction"), col("confidenceOfSimilarity"))
   }
 
   def toAccuracy(maxRating: Double)(ratings: DataFrame): DataFrame = {

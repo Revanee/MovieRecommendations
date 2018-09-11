@@ -25,10 +25,10 @@ object Main extends App {
   val movies = moviesTry.get
   val ratings = ratingsTry.get
 
-  val relatedRatings = ratings
-    .transform(UtilsDF.relatedToId(1, "userId", "movieId"))
+  val ratingsToProcess = ratings.limit(30000)
+//    .transform(UtilsDF.OnlyRelatedToId(1, "userId", "movieId"))
 
-  val similarity = relatedRatings
+  val userSimilarity = ratingsToProcess
       .transform(UtilsDF.toUserPairRatings)
       .transform(UtilsDF.withMatrixFromRatings("rating", "rating2"))
       .withColumn("one", lit(1))
@@ -41,30 +41,39 @@ object Main extends App {
         sum(col("one")).alias("n"))
       .transform(UtilsDF.withSimilarityFromMatrix)
 
-  val ratingsWithSimilarity = relatedRatings
-    .join(similarity, similarity.col("userId2") === relatedRatings.col("userId"))
-    .select(similarity.col("userId"),
-      similarity.col("userId2"),
+  userSimilarity.show()
+
+  val ratingsWithSimilarity = ratingsToProcess
+    .join(userSimilarity, userSimilarity.col("userId2") === ratingsToProcess.col("userId"))
+    .select(
+      userSimilarity.col("userId"),
+      col("userId2").alias("ratedBy"),
       col("movieId"),
       col("rating"),
-      col("similarity"))
+      col("similarity"),
+      col("n").alias("confidenceOfSimilarity"))
 
+  ratingsWithSimilarity.show()
 
   val predictions = ratingsWithSimilarity
-      .transform(UtilsDF.toPredictions("userId", "movieId", "rating", "similarity"))
-      .toDF("userId", "movieId", "prediction")
+      .transform(
+        UtilsDF.toPredictions("userId", "movieId", "rating", "similarity"))
+      .toDF("userId", "movieId", "prediction", "confidenceOfSimilarity") //Fix spark ambiguity bug
+  predictions.show()
 
   val predictionsWithActual =  predictions
-    .join(relatedRatings,
-      relatedRatings.col("userId") === predictions.col("userId") &&
-      relatedRatings.col("movieId") === predictions.col("movieId"))
+    .join(ratingsToProcess,
+      ratingsToProcess.col("userId") === predictions.col("userId") &&
+      ratingsToProcess.col("movieId") === predictions.col("movieId"))
+    .orderBy(desc("confidenceOfSimilarity"))
+    .limit(50)
 
   predictionsWithActual.show()
 
   println("Checking accuracy")
 
   val accuracy = predictionsWithActual
-    .select(relatedRatings.col("userId"), relatedRatings.col("movieId"),
+    .select(ratingsToProcess.col("userId"), ratingsToProcess.col("movieId"),
       col("rating"), col("prediction"))
     .transform(UtilsDF.toAccuracy(5.0))
   accuracy.show()

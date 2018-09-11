@@ -36,7 +36,7 @@ class UtilsDFTest extends FunSuite{
       (2, 2)
     ).toDF("id", "common")
 
-    val result = entries.transform(UtilsDF.relatedToId(1, "id", "common"))
+    val result = entries.transform(UtilsDF.OnlyRelatedToId(1, "id", "common"))
     assert(result.except(expected).count() == 0)
   }
 
